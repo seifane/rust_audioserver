@@ -1,0 +1,161 @@
+use std::net::SocketAddr;
+use std::net::UdpSocket;
+
+use std::thread;
+
+extern crate bincode;
+
+use std::f64::consts::PI;
+
+fn main() {
+    let socket = UdpSocket::bind("127.0.0.1:3400").expect("couldn't bind to address");
+
+    let mut sine = [0.0; 200];
+    for i in 0..200 {
+        sine[i] = (i as f64 / 200 as f64 * PI * 2.0).sin() as f32;
+    }
+
+    let mut left_phase = 0;
+    let mut right_phase = 0;
+
+    while true {
+        let mut idx = 0;
+        let mut buffer = Vec::new();
+        for _ in 0..200 {
+            buffer.push(sine[left_phase]);
+            buffer.push(sine[right_phase]);
+            left_phase += 1;
+            if left_phase >= 200 { left_phase -= 200; }
+            right_phase += 3;
+            if right_phase >= 200 { right_phase -= 200; }
+            idx += 2;
+        }
+
+        let serialized = bincode::serialize(&buffer).expect("cannot serialize");
+        socket.send_to(&serialized, "127.0.0.1:34001");
+        println!("Sent {} bytes", serialized.len());
+        thread::sleep_ms(50);
+    }
+
+    
+    
+    /*let a = a_sink.send(("PING".into(), b_addr)).and_then(|a_sink| {
+        let mut i = 0;
+        let a_stream = a_stream.take(4).map(move |(msg, addr)| {
+            i += 1;
+            println!("[a] recv: {}", String::from_utf8_lossy(&msg));
+            (format!("PING {}", i).into(), addr)
+        });
+        a_sink.send_all(a_stream)
+    });*/
+
+    /*// The second client we have will receive the pings from `a` and then send
+    // back pongs.
+    let b_stream = b_stream.map(|(msg, addr)| {
+        println!("[b] recv: {}", String::from_utf8_lossy(&msg));
+        ("PONG".into(), addr)
+    });
+    let b = b_sink.send_all(b_stream);
+
+    // Spawn the sender of pongs and then wait for our pinger to finish.
+    tokio::run({
+        b.join(a)
+            .map(|_| ())
+            .map_err(|e| println!("error = {:?}", e))
+    });*/
+}
+
+
+/*extern crate portaudio;
+
+use portaudio as pa;
+use std::f64::consts::PI;
+
+const CHANNELS: i32 = 2;
+const NUM_SECONDS: i32 = 1;
+const SAMPLE_RATE: f64 = 44_100.0;
+const FRAMES_PER_BUFFER: u32 = 1024;
+const TABLE_SIZE: usize = 200;
+
+extern crate tokio;
+extern crate tokio_codec;
+extern crate tokio_io;
+
+use std::net::SocketAddr;
+use tokio::prelude::*;
+use tokio::net::{UdpSocket, UdpFramed};
+use tokio_codec::BytesCodec;
+
+fn main() {
+    println!("Hello, world!");
+
+    let addr: SocketAddr = "127.0.0.1:3400".parse().unwrap();
+    let socket = UdpSocket::bind(&addr).unwrap();
+    let (socketSink, socketStream) = UdpFramed::new(socket, BytesCodec::new()).split();
+
+    tokio::run(socket);
+    
+    match run(&socketSink) {
+        Ok(_) => {
+            println!("Everything fine");
+        },
+        e => {
+            eprintln!("Error");
+        }
+    }
+}
+
+fn run(socketSink: &tokio::prelude::Sink) -> Result<(), pa::Error> {
+
+    let mut sine = [0.0; TABLE_SIZE];
+    for i in 0..TABLE_SIZE {
+        sine[i] = (i as f64 / TABLE_SIZE as f64 * PI * 2.0).sin() as f32;
+    }
+
+    let mut left_phase = 0;
+    let mut right_phase = 0;
+
+    let mut totalFrames = 0;
+
+    println!("sine:{}", sine);
+    
+    let pa = try!(pa::PortAudio::new());
+    let mut settings = try!(pa.default_output_stream_settings(CHANNELS, SAMPLE_RATE, FRAMES_PER_BUFFER));
+    settings.flags = pa::stream_flags::CLIP_OFF;
+
+    let callback = move |pa::OutputStreamCallbackArgs { buffer, frames, .. }| {
+        let mut idx = 0;
+
+        totalFrames += frames;
+        
+        println!("length {}", totalFrames);
+        
+        for _ in 0..frames {
+            buffer[idx]   = sine[left_phase];
+            buffer[idx+1] = sine[right_phase];
+            left_phase += 1;
+            if left_phase >= TABLE_SIZE { left_phase -= TABLE_SIZE; }
+            right_phase += 4;
+            if right_phase >= TABLE_SIZE { right_phase -= TABLE_SIZE; }
+            idx += 2;
+        }
+
+        socketSink.send_all(buffer);
+        pa::Continue
+    };
+
+    let mut stream = try!(pa.open_non_blocking_stream(settings, callback));
+
+    try!(stream.start());
+
+    println!("Play for {} seconds.", NUM_SECONDS);
+    pa.sleep(NUM_SECONDS * 1_000);
+
+    try!(stream.stop());
+    try!(stream.close());
+
+    println!("Test finished.");
+
+    Ok(())
+}
+*/

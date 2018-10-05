@@ -1,0 +1,21 @@
+[package]
+name = "audiostream"
+version = "0.1.0"
+authors = ["Seïfane Idouchach <seifane.idouchach@epitech.eu>"]
+
+[dependencies]
+portaudio = "0.7.0"
+env_logger = "0.5.13"
+bincode = "1.0.1"
+cpal = "0.8.2"
+simplemad = "0.9.0"
+sample = "0.10.0"
+ratelimit_meter = "2.0.0"
+
+[[bin]]
+name = "server"
+path = "src/server/main.rs"
+
+[[bin]]
+name = "client"
+path = "src/client/main.rs"
