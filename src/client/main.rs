@@ -123,7 +123,7 @@ fn socket_loop(server_addr: String,
                 buf_vec.lock().unwrap().push_back(*f);                
             }
         }
-        if buf_vec.lock().unwrap().len() > 60000 {
+        if buf_vec.lock().unwrap().len() > 40000 {
             let diff = buf_vec.lock().unwrap().len() - 30000;
             let mut main_buffer = buf_vec.lock().unwrap();
             main_buffer.drain(diff..);
