@@ -12,6 +12,7 @@ use std::path::Path;
 
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::collections::VecDeque;
 
 extern crate ratelimit_meter;
@@ -20,12 +21,22 @@ use ratelimit_meter::{LeakyBucket, Decider};
 
 extern crate rustyline;
 
+#[macro_use]
+extern crate clap;
+
 fn main() {
+    let mut args: Vec<String> = std::env::args().collect();
+    args.remove(0);
+    
+    for a in &args {
+        println!("Streaming to client {}", a);
+    }
+    
     let buf_vec: Arc<Mutex<VecDeque<f32>>> = Arc::new(Mutex::new(VecDeque::new()));
-    //let buf_vec_clone = buf_vec.clone();
+    let clear_mutex: Arc<AtomicBool> = Arc::new(AtomicBool::new(false));
 
 //    decode_mp3("test.mp3", buf_vec.clone());
-    socket_loop(buf_vec.clone());
+    socket_loop(buf_vec.clone(), clear_mutex.clone(), args.clone());
 
     let mut rl = rustyline::Editor::<()>::new();
     loop {
@@ -44,12 +55,13 @@ fn main() {
                     decode_mp3(parsed_vec[1], buf_vec.clone());
                 }
                 if parsed_vec[0] == "clear" {
+                    clear_mutex.store(true, Ordering::SeqCst);
                     buf_vec.lock().unwrap().clear();
+                    clear_mutex.store(false, Ordering::SeqCst);
                 }
             },
             Err(_) => std::process::exit(0),
         }
-      // std::thread::sleep_ms(100);
     }
 }
 
@@ -103,7 +115,9 @@ fn decode_mp3(filepath: &'static str, buf_vec_clone: Arc<Mutex<VecDeque<f32>>>) 
     });
 }
 
-fn socket_loop(buf_vec :Arc<Mutex<VecDeque<f32>>>) -> () {
+fn socket_loop(buf_vec: Arc<Mutex<VecDeque<f32>>>,
+               clear_mutex: Arc<AtomicBool>,
+               clients: Vec<String>) -> () {
     thread::spawn(move || {
         let socket = UdpSocket::bind("0.0.0.0:3400").expect("couldn't bind to address");
         
@@ -114,16 +128,20 @@ fn socket_loop(buf_vec :Arc<Mutex<VecDeque<f32>>>) -> () {
                 let mut to_send : Vec<f32> = Vec::new();
                 
                 for _i in 0..2205 {
-                    if buf_vec.lock().unwrap().len() > 0 {
+                    if !clear_mutex.load(Ordering::SeqCst) && buf_vec.lock().unwrap().len() > 0 {
                         to_send.push(buf_vec.lock().unwrap().pop_front().unwrap());
                     } else {
                         to_send.push(0 as f32);
                     }
                 }
                 let ser = bincode::serialize(&to_send).expect("Cannot serialize");
+
+                for client in &clients {
+                    socket.send_to(&ser, client).expect("Cannot send to client");
+                }
                 
-                socket.send_to(&ser, "127.0.0.1:34001").expect("Cannot send to client");
-                socket.send_to(&ser, "192.168.0.100:34001").expect("Cannot send to client");
+                
+//                socket.send_to(&ser, "192.168.0.100:34001").expect("Cannot send to client");
          //       println!("Sent frame with {} bytes", ser.len());
             } else {
                 std::thread::sleep_ms(10);
