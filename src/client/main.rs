@@ -94,7 +94,7 @@ fn sound_loop(event_loop: EventLoop,
 fn socket_loop(server_addr: String,
                buf_vec: Arc<Mutex<VecDeque<f32>>>,
                is_buffering: Arc<AtomicBool>) -> () {
-    let socket = UdpSocket::bind("127.0.0.1:34001").expect("Cannot bind");
+    let socket = UdpSocket::bind("0.0.0.0:34001").expect("Cannot bind");
     socket.connect(server_addr).expect("Cannot connect");
 
     let bar = ProgressBar::new(200000);
